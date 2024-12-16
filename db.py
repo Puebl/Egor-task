@@ -1,9 +1,10 @@
 import asyncpg
 import asyncio
+import sys
 
 DB_USER = 'postgres'
 DB_PASSWORD = 'admin'
-DB_NAME = 'postgres'
+DB_NAME = 'library_db'
 DB_HOST = 'localhost'
 DB_PORT = '5432'
 
@@ -14,6 +15,25 @@ class Database:
     async def create_pool(self):
         if self._db_pool is None:
             try:
+                self._db_pool = await asyncpg.create_pool(
+                    user=DB_USER,
+                    password=DB_PASSWORD,
+                    database=DB_NAME,
+                    host=DB_HOST,
+                    port=DB_PORT,
+                )
+                await self.initialize_tables()
+            except asyncpg.InvalidCatalogNameError:
+                sys_conn = await asyncpg.connect(
+                    user=DB_USER,
+                    password=DB_PASSWORD,
+                    database='postgres',
+                    host=DB_HOST,
+                    port=DB_PORT,
+                )
+                await sys_conn.execute(f'CREATE DATABASE {DB_NAME}')
+                await sys_conn.close()
+                
                 self._db_pool = await asyncpg.create_pool(
                     user=DB_USER,
                     password=DB_PASSWORD,
