@@ -36,32 +36,52 @@ class LoginScreen(Screen):
 
 class RegistrationScreen(Screen):
     def register(self):
+        print("Начало регистрации")
         app = App.get_running_app()
         username = self.ids.username_input.text
         password = self.ids.password_input.text
         is_admin = self.ids.admin_checkbox.active
         
+        print(f"Данные для регистрации: username={username}, is_admin={is_admin}")
+        
         async def register_user():
+            print("Начало асинхронной регистрации")
             try:
                 if not username or not password:
+                    print("Пустые поля")
                     self.ids.error_label.text = 'Заполните все поля'
                     return
                 
-                if await user_exists(username):
+                exists = await user_exists(username)
+                print(f"Проверка существования пользователя: {exists}")
+                
+                if exists:
+                    print("Пользователь уже существует")
                     self.ids.error_label.text = 'Пользователь с таким логином уже существует!'
                 else:
+                    print("Добавление нового пользователя")
                     await add_user(username, password, is_admin)
+                    print("Пользователь добавлен успешно")
                     self.manager.current = 'login'
             except Exception as e:
+                print(f"Ошибка при регистрации: {str(e)}")
                 self.ids.error_label.text = f'Ошибка: {str(e)}'
         
+        print("Создание задачи регистрации")
         future = app.loop.create_task(register_user())
+        
         def callback(future):
+            print("Callback регистрации")
             try:
                 future.result()
+                print("Регистрация завершена успешно")
             except Exception as e:
+                print(f"Ошибка в callback: {str(e)}")
                 self.ids.error_label.text = f'Ошибка: {str(e)}'
+        
+        print("Добавление callback")
         future.add_done_callback(callback)
+        print("Регистрация запущена")
 
 class LibraryMainScreen(Screen):
     def on_enter(self):
@@ -157,9 +177,16 @@ class AdminPanelScreen(Screen):
 
 class MainApp(App):
     def build(self):
+        print("Инициализация приложения")
         self.current_user = None
         self.book_id = None
-        self.loop = asyncio.get_event_loop()
+        
+        try:
+            self.loop = asyncio.get_event_loop()
+        except RuntimeError:
+            self.loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self.loop)
+        print("Event loop создан")
         
         sm = ScreenManager()
         sm.add_widget(LoginScreen(name='login'))
@@ -170,4 +197,8 @@ class MainApp(App):
         return sm
 
 if __name__ == "__main__":
-    MainApp().run()
+    print("Запуск приложения")
+    try:
+        MainApp().run()
+    except Exception as e:
+        print(f"Ошибка при запуске приложения: {str(e)}")
