@@ -16,20 +16,23 @@ from request import (add_user, user_exists, authenticate_user, add_book,
 
 class LoginScreen(Screen):
     def login(self):
-        asyncio.create_task(self._login())
-
-    async def _login(self):
+        app = App.get_running_app()
         username = self.ids.username_input.text
         password = self.ids.password_input.text
-        user = await authenticate_user(username, password)
-        if user:
-            App.get_running_app().current_user = user
-            if user['is_admin']:
-                self.manager.current = 'admin_panel'
+        
+        def callback(future):
+            user = future.result()
+            if user:
+                app.current_user = user
+                if user['is_admin']:
+                    self.manager.current = 'admin_panel'
+                else:
+                    self.manager.current = 'library_main'
             else:
-                self.manager.current = 'library_main'
-        else:
-            self.ids.error_label.text = 'Неверный логин или пароль'
+                self.ids.error_label.text = 'Неверный логин или пароль'
+        
+        future = app.loop.create_task(authenticate_user(username, password))
+        future.add_done_callback(callback)
 
 class RegistrationScreen(Screen):
     def register(self):
@@ -121,6 +124,7 @@ class MainApp(App):
     def build(self):
         self.current_user = None
         self.book_id = None
+        self.loop = asyncio.get_event_loop()
         
         sm = ScreenManager()
         sm.add_widget(LoginScreen(name='login'))
@@ -131,4 +135,4 @@ class MainApp(App):
         return sm
 
 if __name__ == "__main__":
-    asyncio.run(MainApp().async_run())
+    MainApp().run()
