@@ -36,36 +36,54 @@ class LoginScreen(Screen):
 
 class RegistrationScreen(Screen):
     def register(self):
-        asyncio.create_task(self._register())
-
-    async def _register(self):
+        app = App.get_running_app()
         username = self.ids.username_input.text
         password = self.ids.password_input.text
         is_admin = self.ids.admin_checkbox.active
         
-        if await user_exists(username):
-            self.ids.error_label.text = 'Пользователь с таким логином уже существует!'
-        else:
-            await add_user(username, password, is_admin)
-            self.manager.current = 'login'
+        async def register_user():
+            try:
+                if not username or not password:
+                    self.ids.error_label.text = 'Заполните все поля'
+                    return
+                
+                if await user_exists(username):
+                    self.ids.error_label.text = 'Пользователь с таким логином уже существует!'
+                else:
+                    await add_user(username, password, is_admin)
+                    self.manager.current = 'login'
+            except Exception as e:
+                self.ids.error_label.text = f'Ошибка: {str(e)}'
+        
+        future = app.loop.create_task(register_user())
+        def callback(future):
+            try:
+                future.result()
+            except Exception as e:
+                self.ids.error_label.text = f'Ошибка: {str(e)}'
+        future.add_done_callback(callback)
 
 class LibraryMainScreen(Screen):
     def on_enter(self):
-        asyncio.create_task(self._load_books())
-
-    async def _load_books(self):
-        books = await get_all_books()
-        self.ids.books_grid.clear_widgets()
-        for book in books:
-            book_widget = BoxLayout(orientation='vertical', size_hint_y=None, height=100)
-            book_widget.add_widget(Label(text=f'Название: {book["title"]}'))
-            book_widget.add_widget(Label(text=f'Автор: {book["author_name"]}'))
-            book_widget.add_widget(Label(text=f'Доступно: {book["available_quantity"]}'))
-            details_btn = Button(text='Подробнее')
-            details_btn.book_id = book['id']
-            details_btn.bind(on_press=self.show_book_details)
-            book_widget.add_widget(details_btn)
-            self.ids.books_grid.add_widget(book_widget)
+        app = App.get_running_app()
+        async def load_books():
+            try:
+                books = await get_all_books()
+                self.ids.books_grid.clear_widgets()
+                for book in books:
+                    book_widget = BoxLayout(orientation='vertical', size_hint_y=None, height=100)
+                    book_widget.add_widget(Label(text=f'Название: {book["title"]}'))
+                    book_widget.add_widget(Label(text=f'Автор: {book["author_name"]}'))
+                    book_widget.add_widget(Label(text=f'Доступно: {book["available_quantity"]}'))
+                    details_btn = Button(text='Подробнее')
+                    details_btn.book_id = book['id']
+                    details_btn.bind(on_press=self.show_book_details)
+                    book_widget.add_widget(details_btn)
+                    self.ids.books_grid.add_widget(book_widget)
+            except Exception as e:
+                print(f'Ошибка загрузки книг: {str(e)}')
+        
+        future = app.loop.create_task(load_books())
 
     def show_book_details(self, instance):
         App.get_running_app().book_id = instance.book_id
@@ -73,52 +91,69 @@ class LibraryMainScreen(Screen):
 
 class BookDetailsScreen(Screen):
     def on_enter(self):
-        asyncio.create_task(self._load_book_details())
-
-    async def _load_book_details(self):
-        book_id = App.get_running_app().book_id
-        book = await get_book(book_id)
-        self.ids.title_label.text = f'Название: {book["title"]}'
-        self.ids.author_label.text = f'Автор: {book["author_name"]}'
-        self.ids.genre_label.text = f'Жанр: {book["genre"]}'
-        self.ids.description_label.text = f'Описание: {book["description"]}'
-        self.ids.available_label.text = f'Доступно: {book["available_quantity"]}'
+        app = App.get_running_app()
+        async def load_details():
+            try:
+                book_id = app.book_id
+                book = await get_book(book_id)
+                self.ids.title_label.text = f'Название: {book["title"]}'
+                self.ids.author_label.text = f'Автор: {book["author_name"]}'
+                self.ids.genre_label.text = f'Жанр: {book["genre"]}'
+                self.ids.description_label.text = f'Описание: {book["description"]}'
+                self.ids.available_label.text = f'Доступно: {book["available_quantity"]}'
+            except Exception as e:
+                print(f'Ошибка загрузки деталей книги: {str(e)}')
+        
+        future = app.loop.create_task(load_details())
 
     def borrow_book(self):
-        asyncio.create_task(self._borrow_book())
-
-    async def _borrow_book(self):
-        book_id = App.get_running_app().book_id
-        user_id = App.get_running_app().current_user['id']
-        if await borrow_book(book_id, user_id):
-            self.ids.status_label.text = 'Книга успешно взята'
-            await self._load_book_details()
-        else:
-            self.ids.status_label.text = 'Книга недоступна'
+        app = App.get_running_app()
+        async def do_borrow():
+            try:
+                book_id = app.book_id
+                user_id = app.current_user['id']
+                if await borrow_book(book_id, user_id):
+                    self.ids.status_label.text = 'Книга успешно взята'
+                    book = await get_book(book_id)
+                    self.ids.available_label.text = f'Доступно: {book["available_quantity"]}'
+                else:
+                    self.ids.status_label.text = 'Книга недоступна'
+            except Exception as e:
+                self.ids.status_label.text = f'Ошибка: {str(e)}'
+        
+        future = app.loop.create_task(do_borrow())
 
 class AdminPanelScreen(Screen):
     def add_book(self):
-        asyncio.create_task(self._add_book())
-
-    async def _add_book(self):
-        title = self.ids.book_title_input.text
-        author_id = int(self.ids.author_id_input.text)
-        genre = self.ids.genre_input.text
-        description = self.ids.description_input.text
-        quantity = int(self.ids.quantity_input.text)
+        app = App.get_running_app()
+        async def do_add_book():
+            try:
+                title = self.ids.book_title_input.text
+                author_id = int(self.ids.author_id_input.text)
+                genre = self.ids.genre_input.text
+                description = self.ids.description_input.text
+                quantity = int(self.ids.quantity_input.text)
+                
+                await add_book(title, author_id, genre, description, quantity)
+                self.ids.status_label.text = 'Книга успешно добавлена'
+            except Exception as e:
+                self.ids.status_label.text = f'Ошибка: {str(e)}'
         
-        await add_book(title, author_id, genre, description, quantity)
-        self.ids.status_label.text = 'Книга успешно добавлена'
+        future = app.loop.create_task(do_add_book())
 
     def add_author(self):
-        asyncio.create_task(self._add_author())
-
-    async def _add_author(self):
-        name = self.ids.author_name_input.text
-        biography = self.ids.author_bio_input.text
+        app = App.get_running_app()
+        async def do_add_author():
+            try:
+                name = self.ids.author_name_input.text
+                biography = self.ids.author_bio_input.text
+                
+                await add_author(name, biography)
+                self.ids.status_label.text = 'Автор успешно добавлен'
+            except Exception as e:
+                self.ids.status_label.text = f'Ошибка: {str(e)}'
         
-        await add_author(name, biography)
-        self.ids.status_label.text = 'Автор успешно добавлен'
+        future = app.loop.create_task(do_add_author())
 
 class MainApp(App):
     def build(self):
