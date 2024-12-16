@@ -1,0 +1,251 @@
+<LoginScreen>:
+    BoxLayout:
+        orientation: 'vertical'
+        padding: 20
+        spacing: 10
+        
+        Label:
+            text: 'Библиотека - Вход'
+            font_size: '24sp'
+            size_hint_y: None
+            height: '40dp'
+        
+        TextInput:
+            id: username_input
+            hint_text: 'Имя пользователя'
+            multiline: False
+            size_hint_y: None
+            height: '40dp'
+        
+        TextInput:
+            id: password_input
+            hint_text: 'Пароль'
+            password: True
+            multiline: False
+            size_hint_y: None
+            height: '40dp'
+        
+        Button:
+            text: 'Войти'
+            size_hint_y: None
+            height: '40dp'
+            on_press: root.login()
+        
+        Button:
+            text: 'Регистрация'
+            size_hint_y: None
+            height: '40dp'
+            on_press: root.manager.current = 'registration'
+        
+        Label:
+            id: error_label
+            text: ''
+            color: 1, 0, 0, 1
+
+<RegistrationScreen>:
+    BoxLayout:
+        orientation: 'vertical'
+        padding: 20
+        spacing: 10
+        
+        Label:
+            text: 'Регистрация'
+            font_size: '24sp'
+            size_hint_y: None
+            height: '40dp'
+        
+        TextInput:
+            id: username_input
+            hint_text: 'Имя пользователя'
+            multiline: False
+            size_hint_y: None
+            height: '40dp'
+        
+        TextInput:
+            id: password_input
+            hint_text: 'Пароль'
+            password: True
+            multiline: False
+            size_hint_y: None
+            height: '40dp'
+        
+        BoxLayout:
+            size_hint_y: None
+            height: '40dp'
+            Label:
+                text: 'Администратор:'
+            CheckBox:
+                id: admin_checkbox
+        
+        Button:
+            text: 'Зарегистрироваться'
+            size_hint_y: None
+            height: '40dp'
+            on_press: root.register()
+        
+        Button:
+            text: 'Назад ко входу'
+            size_hint_y: None
+            height: '40dp'
+            on_press: root.manager.current = 'login'
+        
+        Label:
+            id: error_label
+            text: ''
+            color: 1, 0, 0, 1
+
+<LibraryMainScreen>:
+    BoxLayout:
+        orientation: 'vertical'
+        padding: 20
+        spacing: 10
+        
+        Label:
+            text: 'Библиотека - Главная'
+            font_size: '24sp'
+            size_hint_y: None
+            height: '40dp'
+        
+        ScrollView:
+            GridLayout:
+                id: books_grid
+                cols: 1
+                spacing: 10
+                size_hint_y: None
+                height: self.minimum_height
+        
+        Button:
+            text: 'Выйти'
+            size_hint_y: None
+            height: '40dp'
+            on_press: root.manager.current = 'login'
+
+<BookDetailsScreen>:
+    BoxLayout:
+        orientation: 'vertical'
+        padding: 20
+        spacing: 10
+        
+        Label:
+            text: 'Информация о книге'
+            font_size: '24sp'
+            size_hint_y: None
+            height: '40dp'
+        
+        Label:
+            id: title_label
+            text: 'Название: '
+        
+        Label:
+            id: author_label
+            text: 'Автор: '
+        
+        Label:
+            id: genre_label
+            text: 'Жанр: '
+        
+        Label:
+            id: description_label
+            text: 'Описание: '
+        
+        Label:
+            id: available_label
+            text: 'Доступно: '
+        
+        Button:
+            text: 'Взять книгу'
+            size_hint_y: None
+            height: '40dp'
+            on_press: root.borrow_book()
+        
+        Label:
+            id: status_label
+            text: ''
+        
+        Button:
+            text: 'Назад к списку'
+            size_hint_y: None
+            height: '40dp'
+            on_press: root.manager.current = 'library_main'
+
+<AdminPanelScreen>:
+    BoxLayout:
+        orientation: 'vertical'
+        padding: 20
+        spacing: 10
+        
+        Label:
+            text: 'Панель администратора'
+            font_size: '24sp'
+            size_hint_y: None
+            height: '40dp'
+        
+        TabbedPanel:
+            do_default_tab: False
+            
+            TabbedPanelItem:
+                text: 'Добавить книгу'
+                BoxLayout:
+                    orientation: 'vertical'
+                    padding: 10
+                    spacing: 10
+                    
+                    TextInput:
+                        id: book_title_input
+                        hint_text: 'Название книги'
+                        multiline: False
+                    
+                    TextInput:
+                        id: author_id_input
+                        hint_text: 'ID автора'
+                        multiline: False
+                    
+                    TextInput:
+                        id: genre_input
+                        hint_text: 'Жанр'
+                        multiline: False
+                    
+                    TextInput:
+                        id: description_input
+                        hint_text: 'Описание'
+                        multiline: True
+                    
+                    TextInput:
+                        id: quantity_input
+                        hint_text: 'Количество'
+                        multiline: False
+                    
+                    Button:
+                        text: 'Добавить книгу'
+                        on_press: root.add_book()
+            
+            TabbedPanelItem:
+                text: 'Добавить автора'
+                BoxLayout:
+                    orientation: 'vertical'
+                    padding: 10
+                    spacing: 10
+                    
+                    TextInput:
+                        id: author_name_input
+                        hint_text: 'Имя автора'
+                        multiline: False
+                    
+                    TextInput:
+                        id: author_bio_input
+                        hint_text: 'Биография'
+                        multiline: True
+                    
+                    Button:
+                        text: 'Добавить автора'
+                        on_press: root.add_author()
+        
+        Label:
+            id: status_label
+            text: ''
+        
+        Button:
+            text: 'Выйти'
+            size_hint_y: None
+            height: '40dp'
+            on_press: root.manager.current = 'login'
