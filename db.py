@@ -3,47 +3,66 @@ import asyncio
 import sys
 
 DB_USER = 'postgres'
-DB_PASSWORD = 'admin'
+DB_PASSWORD = 'postgres'
 DB_NAME = 'library_db'
-DB_HOST = 'localhost'
+DB_HOST = '127.0.0.1'
 DB_PORT = '5432'
 
 class Database:
     def __init__(self):
         self._db_pool = None
+        self._initialized = False
 
     async def create_pool(self):
         if self._db_pool is None:
             try:
+                print(f"Подключение к базе данных: {DB_HOST}:{DB_PORT}")
                 self._db_pool = await asyncpg.create_pool(
                     user=DB_USER,
                     password=DB_PASSWORD,
                     database=DB_NAME,
                     host=DB_HOST,
                     port=DB_PORT,
+                    min_size=2,
+                    max_size=10,
+                    command_timeout=60
                 )
-                await self.initialize_tables()
+                if not self._initialized:
+                    await self.initialize_tables()
+                    self._initialized = True
             except asyncpg.InvalidCatalogNameError:
-                sys_conn = await asyncpg.connect(
-                    user=DB_USER,
-                    password=DB_PASSWORD,
-                    database='postgres',
-                    host=DB_HOST,
-                    port=DB_PORT,
-                )
-                await sys_conn.execute(f'CREATE DATABASE {DB_NAME}')
-                await sys_conn.close()
-                
-                self._db_pool = await asyncpg.create_pool(
-                    user=DB_USER,
-                    password=DB_PASSWORD,
-                    database=DB_NAME,
-                    host=DB_HOST,
-                    port=DB_PORT,
-                )
-                await self.initialize_tables()
+                print(f"База данных {DB_NAME} не существует, создаем...")
+                try:
+                    sys_conn = await asyncpg.connect(
+                        user=DB_USER,
+                        password=DB_PASSWORD,
+                        database='postgres',
+                        host=DB_HOST,
+                        port=DB_PORT,
+                        command_timeout=60
+                    )
+                    await sys_conn.execute(f'CREATE DATABASE {DB_NAME}')
+                    await sys_conn.close()
+                    
+                    self._db_pool = await asyncpg.create_pool(
+                        user=DB_USER,
+                        password=DB_PASSWORD,
+                        database=DB_NAME,
+                        host=DB_HOST,
+                        port=DB_PORT,
+                        min_size=2,
+                        max_size=10,
+                        command_timeout=60
+                    )
+                    await self.initialize_tables()
+                    self._initialized = True
+                except Exception as e:
+                    print(f"Ошибка при создании базы данных: {e}")
+                    raise e
             except Exception as e:
                 print(f"Ошибка при подключении к базе данных: {e}")
+                print(f"Проверьте, что PostgreSQL запущен и доступен по адресу {DB_HOST}:{DB_PORT}")
+                print(f"Проверьте правильность имени пользователя ({DB_USER}) и пароля")
                 raise e
 
     async def initialize_tables(self):

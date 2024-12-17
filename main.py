@@ -62,12 +62,12 @@ class RegistrationScreen(Screen):
                     print("Добавление нового пользователя")
                     await add_user(username, password, is_admin)
                     print("Пользователь добавлен успешно")
-                    self.manager.current = 'login'
+                    app.loop.call_soon_threadsafe(self.switch_to_login)
             except Exception as e:
                 print(f"Ошибка при регистрации: {str(e)}")
-                self.ids.error_label.text = f'Ошибка: {str(e)}'
-        
-        print("Создание задачи регистрации")
+                error_msg = str(e)
+                app.loop.call_soon_threadsafe(lambda: self.show_error(error_msg))
+
         future = app.loop.create_task(register_user())
         
         def callback(future):
@@ -82,6 +82,12 @@ class RegistrationScreen(Screen):
         print("Добавление callback")
         future.add_done_callback(callback)
         print("Регистрация запущена")
+
+    def switch_to_login(self):
+        self.manager.current = 'login'
+
+    def show_error(self, error_msg):
+        self.ids.error_label.text = f'Ошибка: {error_msg}'
 
 class LibraryMainScreen(Screen):
     def on_enter(self):
@@ -183,10 +189,42 @@ class MainApp(App):
         
         try:
             self.loop = asyncio.get_event_loop()
+            print("Получен существующий event loop")
         except RuntimeError:
             self.loop = asyncio.new_event_loop()
             asyncio.set_event_loop(self.loop)
-        print("Event loop создан")
+            print("Создан новый event loop")
+        
+        async def init_db():
+            print("Начало инициализации базы данных")
+            try:
+                await db_instance.create_pool()
+                print("База данных успешно инициализирована")
+                
+                # Проверяем подключение, пытаясь выполнить простой запрос
+                pool = await db_instance.get_pool()
+                async with pool.acquire() as conn:
+                    await conn.fetchval('SELECT 1')
+                print("Подключение к базе данных проверено")
+                
+                return True
+            except Exception as e:
+                print(f"Ошибка при инициализации базы данных: {e}")
+                print(f"Тип ошибки: {type(e).__name__}")
+                return False
+        
+        print("Запуск инициализации базы данных")
+        future = self.loop.create_task(init_db())
+        try:
+            self.loop.run_until_complete(future)
+            if not future.result():
+                print("Не удалось инициализировать базу данных")
+                return None
+        except Exception as e:
+            print(f"Критическая ошибка при инициализации: {e}")
+            return None
+        
+        print("Event loop и база данных готовы")
         
         sm = ScreenManager()
         sm.add_widget(LoginScreen(name='login'))
@@ -196,9 +234,23 @@ class MainApp(App):
         sm.add_widget(AdminPanelScreen(name='admin_panel'))
         return sm
 
+    def on_stop(self):
+        async def close_db():
+            await db_instance.close_pool()
+        
+        self.loop.run_until_complete(close_db())
+        self.loop.close()
+
 if __name__ == "__main__":
     print("Запуск приложения")
     try:
-        MainApp().run()
+        print("Создание экземпляра приложения")
+        app = MainApp()
+        print("Запуск главного цикла приложения")
+        app.run()
     except Exception as e:
-        print(f"Ошибка при запуске приложения: {str(e)}")
+        print(f"Критическая ошибка при запуске приложения: {str(e)}")
+        print("Детали ошибки:", e.__class__.__name__)
+        import traceback
+        traceback.print_exc()
+        input("Нажмите Enter для выхода...")
