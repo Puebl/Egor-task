@@ -16,23 +16,37 @@ from request import (add_user, user_exists, authenticate_user, add_book,
 
 class LoginScreen(Screen):
     def login(self):
+        print("Начало входа")
         app = App.get_running_app()
         username = self.ids.username_input.text
         password = self.ids.password_input.text
         
-        def callback(future):
-            user = future.result()
-            if user:
-                app.current_user = user
-                if user['is_admin']:
-                    self.manager.current = 'admin_panel'
+        async def do_login():
+            try:
+                print(f"Попытка входа для пользователя: {username}")
+                user = await authenticate_user(username, password)
+                if user:
+                    print("Вход успешен")
+                    app.current_user = user
+                    app.loop.call_soon_threadsafe(self.switch_to_main)
                 else:
-                    self.manager.current = 'library_main'
-            else:
-                self.ids.error_label.text = 'Неверный логин или пароль'
-        
-        future = app.loop.create_task(authenticate_user(username, password))
-        future.add_done_callback(callback)
+                    print("Неверные учетные данные")
+                    app.loop.call_soon_threadsafe(lambda: self.show_error('Неверный логин или пароль'))
+            except Exception as e:
+                print(f"Ошибка при входе: {str(e)}")
+                app.loop.call_soon_threadsafe(lambda: self.show_error(str(e)))
+
+        future = app.loop.create_task(do_login())
+        future.add_done_callback(lambda f: print("Процесс входа завершен"))
+
+    def switch_to_main(self):
+        if App.get_running_app().current_user['is_admin']:
+            self.manager.current = 'admin_panel'
+        else:
+            self.manager.current = 'library_main'
+
+    def show_error(self, error_msg):
+        self.ids.error_label.text = error_msg
 
 class RegistrationScreen(Screen):
     def register(self):
@@ -62,29 +76,26 @@ class RegistrationScreen(Screen):
                     print("Добавление нового пользователя")
                     await add_user(username, password, is_admin)
                     print("Пользователь добавлен успешно")
-                    app.loop.call_soon_threadsafe(self.switch_to_login)
+                    # После регистрации авторизуем пользователя
+                    user = await authenticate_user(username, password)
+                    if user:
+                        app.current_user = user
+                        app.loop.call_soon_threadsafe(self.switch_to_main)
+                    else:
+                        raise ValueError("Ошибка автоматической авторизации")
             except Exception as e:
                 print(f"Ошибка при регистрации: {str(e)}")
                 error_msg = str(e)
                 app.loop.call_soon_threadsafe(lambda: self.show_error(error_msg))
 
         future = app.loop.create_task(register_user())
-        
-        def callback(future):
-            print("Callback регистрации")
-            try:
-                future.result()
-                print("Регистрация завершена успешно")
-            except Exception as e:
-                print(f"Ошибка в callback: {str(e)}")
-                self.ids.error_label.text = f'Ошибка: {str(e)}'
-        
-        print("Добавление callback")
-        future.add_done_callback(callback)
-        print("Регистрация запущена")
+        future.add_done_callback(lambda f: print("Регистрация завершена"))
 
-    def switch_to_login(self):
-        self.manager.current = 'login'
+    def switch_to_main(self):
+        if App.get_running_app().current_user['is_admin']:
+            self.manager.current = 'admin_panel'
+        else:
+            self.manager.current = 'library_main'
 
     def show_error(self, error_msg):
         self.ids.error_label.text = f'Ошибка: {error_msg}'
