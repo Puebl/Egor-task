@@ -66,7 +66,9 @@ class Database:
                 raise e
 
     async def initialize_tables(self):
+        print("Начало инициализации таблиц")
         async with self._db_pool.acquire() as conn:
+            print("Создание таблицы users...")
             await conn.execute('''
                 CREATE TABLE IF NOT EXISTS users (
                     id SERIAL PRIMARY KEY,
@@ -75,7 +77,9 @@ class Database:
                     is_admin BOOLEAN DEFAULT FALSE
                 )
             ''')
+            print("Таблица users создана")
             
+            print("Создание таблицы authors...")
             await conn.execute('''
                 CREATE TABLE IF NOT EXISTS authors (
                     id SERIAL PRIMARY KEY,
@@ -83,7 +87,9 @@ class Database:
                     biography TEXT
                 )
             ''')
+            print("Таблица authors создана")
             
+            print("Создание таблицы books...")
             await conn.execute('''
                 CREATE TABLE IF NOT EXISTS books (
                     id SERIAL PRIMARY KEY,
@@ -95,7 +101,9 @@ class Database:
                     available_quantity INTEGER DEFAULT 1
                 )
             ''')
+            print("Таблица books создана")
             
+            print("Создание таблицы book_loans...")
             await conn.execute('''
                 CREATE TABLE IF NOT EXISTS book_loans (
                     id SERIAL PRIMARY KEY,
@@ -106,6 +114,8 @@ class Database:
                     is_returned BOOLEAN DEFAULT FALSE
                 )
             ''')
+            print("Таблица book_loans создана")
+            print("Все таблицы успешно созданы")
 
     async def get_pool(self):
         if self._db_pool is None:

@@ -8,6 +8,7 @@ from kivy.uix.textinput import TextInput
 from kivy.uix.scrollview import ScrollView
 from kivy.clock import Clock
 import asyncio
+import sys
 
 from db import db_instance
 from request import (add_user, user_exists, authenticate_user, add_book, 
@@ -63,15 +64,15 @@ class RegistrationScreen(Screen):
             try:
                 if not username or not password:
                     print("Пустые поля")
-                    self.ids.error_label.text = 'Заполните все поля'
+                    app.loop.call_soon_threadsafe(lambda: self.show_error('Заполните все поля'))
                     return
                 
                 exists = await user_exists(username)
-                print(f"Проверка существования пользователя: {exists}")
+                print(f"Проверка существ��вания пользователя: {exists}")
                 
                 if exists:
                     print("Пользователь уже существует")
-                    self.ids.error_label.text = 'Пользователь с таким логином уже существует!'
+                    app.loop.call_soon_threadsafe(lambda: self.show_error('Пользователь с таким логином уже существует!'))
                 else:
                     print("Добавление нового пользователя")
                     await add_user(username, password, is_admin)
@@ -79,25 +80,36 @@ class RegistrationScreen(Screen):
                     # После регистрации авторизуем пользователя
                     user = await authenticate_user(username, password)
                     if user:
+                        print("Автоматическая авторизация успешна")
                         app.current_user = user
                         app.loop.call_soon_threadsafe(self.switch_to_main)
                     else:
+                        print("Ошибка автоматической авторизации")
                         raise ValueError("Ошибка автоматической авторизации")
             except Exception as e:
-                print(f"Ошибка при регистрации: {str(e)}")
+                print(f"Ошибка при регис��рации: {str(e)}")
                 error_msg = str(e)
                 app.loop.call_soon_threadsafe(lambda: self.show_error(error_msg))
 
-        future = app.loop.create_task(register_user())
-        future.add_done_callback(lambda f: print("Регистрация завершена"))
+        try:
+            print("Создание задачи регистрации")
+            future = app.loop.create_task(register_user())
+            print("Задача регистрации создана")
+        except Exception as e:
+            print(f"Ошибка при создании задачи: {str(e)}")
+            self.show_error(f"Системная ошибка: {str(e)}")
 
     def switch_to_main(self):
+        print("Переключение на главный экран")
         if App.get_running_app().current_user['is_admin']:
+            print("Переход на панель администратора")
             self.manager.current = 'admin_panel'
         else:
+            print("Переход на экран библиотеки")
             self.manager.current = 'library_main'
 
     def show_error(self, error_msg):
+        print(f"Отображение ошибки: {error_msg}")
         self.ids.error_label.text = f'Ошибка: {error_msg}'
 
 class LibraryMainScreen(Screen):
@@ -257,6 +269,25 @@ if __name__ == "__main__":
     try:
         print("Создание экземпляра приложения")
         app = MainApp()
+        
+        print("Проверка подключения к базе данных")
+        async def test_db():
+            try:
+                pool = await db_instance.get_pool()
+                async with pool.acquire() as conn:
+                    result = await conn.fetchval('SELECT 1')
+                    print("Подключение к базе данных успешно")
+                    return True
+            except Exception as e:
+                print(f"Ошибка подключения к базе данных: {str(e)}")
+                return False
+        
+        loop = asyncio.get_event_loop()
+        if not loop.run_until_complete(test_db()):
+            print("Не удалось подключиться к базе данных")
+            input("Нажмите Enter для выхода...")
+            sys.exit(1)
+        
         print("Запуск главного цикла приложения")
         app.run()
     except Exception as e:
